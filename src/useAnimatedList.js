@@ -47,13 +47,12 @@ export function useAnimatedList(
   React.useLayoutEffect(() => {
     if (skip || !ref.current) return;
     const batchedOperations = [];
-    const list = ref.current;
-    const { children: domChildren } = list;
+    const { children: domChildren } = ref.current;
     for (const domChild of domChildren) {
       const oldBox = prevBoxes.current.get(domChild.dataset.animationKey);
       const box = domChild.getBoundingClientRect();
 
-      if (box && shouldAnimate.current) {
+      if (shouldAnimate.current) {
         if (oldBox) {
           const dx =
             translate === "both" || translate === "horizontal"
@@ -63,8 +62,6 @@ export function useAnimatedList(
             translate === "both" || translate === "vertical"
               ? oldBox.top - box.top
               : 0;
-
-          if (dx === 0 && dy === 0) return;
 
           batchedOperations.push(() => {
             requestAnimationFrame(() => {
