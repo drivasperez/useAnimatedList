@@ -12,18 +12,20 @@ export function useAnimatedList(
 ) {
   const ref = React.useRef();
   const prevBoxes = React.useRef(new Map());
-  const nextBoxes = React.useRef(new Map());
+  const batchedOperations = React.useRef([]);
+
   const shouldAnimate = React.useRef(animateOnFirstRender);
   const runningAnimations = React.useRef(new Set());
   const animationCounter = React.useRef(0);
 
-  if (runningAnimations.current.size > 0) {
-    // Render has been called again, while animations were in flight.
-    for (elem in runningAnimations.current.entries()) {
-      const box = elem.getBoundingClientRect();
-      nextBoxes.set(elem.dataset.animationKey, box);
-    }
-  }
+  // if (runningAnimations.current.size > 0) {
+  //   // Render has been called again, while animations were in flight.
+  //   for (elem of runningAnimations.current.keys()) {
+  //     const box = elem.getBoundingClientRect();
+  //     elem.style.transition = "";
+  //     elem.style.transform = `transform(${box.left}px, ${box.top}px)`;
+  //   }
+  // }
 
   React.useEffect(() => {
     // Clear the cache if we set skip to true.
@@ -52,39 +54,51 @@ export function useAnimatedList(
               ? oldBox.top - box.top
               : 0;
 
-          requestAnimationFrame(() => {
-            domChild.style.transform = `translate(${dx}px, ${dy}px)`;
-            domChild.style.transition = "transform 0s";
+          if (dx === 0 && dy === 0) return;
 
+          batchedOperations.current.push(() => {
             requestAnimationFrame(() => {
-              domChild.style.transform = "";
-              domChild.style.transition = `transform ${moving.time}ms ${moving.easing}`;
-              runningAnimations.current.add(domChild);
-              animationCounter.current += 1;
-              domChild.addEventListener(
-                "transitionend",
-                () => {
-                  runningAnimations.current.delete(domChild);
-                  animationCounter.current -= 1;
-                },
-                {
-                  once: true
-                }
-              );
+              domChild.style.transform = `translate(${dx}px, ${dy}px)`;
+              domChild.style.transition = "transform 0s";
+
+              requestAnimationFrame(() => {
+                domChild.style.transform = "";
+                domChild.style.transition = `transform ${moving.time}ms ${moving.easing}`;
+                runningAnimations.current.add(domChild);
+                animationCounter.current += 1;
+                domChild.addEventListener(
+                  "transitionend",
+                  () => {
+                    runningAnimations.current.delete(domChild);
+                    animationCounter.current -= 1;
+                  },
+                  {
+                    once: true
+                  }
+                );
+              });
             });
           });
         } else {
-          requestAnimationFrame(() => {
-            domChild.style.opacity = 0;
-            domChild.style.transition = "opacity 0s";
+          batchedOperations.current.push(() => {
             requestAnimationFrame(() => {
-              domChild.style.opacity = 1;
-              domChild.style.transition = `opacity ${elem.time}ms ${elem.easing}`;
+              domChild.style.opacity = 0;
+              domChild.style.transition = "opacity 0s";
+              requestAnimationFrame(() => {
+                domChild.style.opacity = 1;
+                domChild.style.transition = `opacity ${elem.time}ms ${elem.easing}`;
+              });
             });
           });
         }
       }
-      prevBoxes.current.set(domChild.dataset.animationKey, box);
+      prevBoxes.current.set(
+        domChild.dataset.animationKey,
+        domChild.getBoundingClientRect()
+      );
+      while (batchedOperations.current.length) {
+        batchedOperations.current.pop()();
+      }
     }
 
     shouldAnimate.current = true;
