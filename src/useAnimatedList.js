@@ -63,6 +63,15 @@ export function useAnimatedList(
               ? oldBox.top - box.top
               : 0;
 
+          if (dx === 0 && dy === 0) {
+            // Bail and move on, the box isn't moving.
+            prevBoxes.current.set(
+              domChild.dataset.animationKey,
+              domChild.getBoundingClientRect()
+            );
+            continue;
+          }
+
           batchedOperations.push(() => {
             requestAnimationFrame(() => {
               domChild.style.transform = `translate(${dx}px, ${dy}px)`;
