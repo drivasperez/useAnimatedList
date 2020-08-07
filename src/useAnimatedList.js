@@ -106,11 +106,11 @@ export function useAnimatedList(
         domChild.dataset.animationKey,
         domChild.getBoundingClientRect()
       );
-      while (batchedOperations.length) {
-        batchedOperations.pop()();
-      }
     }
     shouldAnimate.current = true;
+    while (batchedOperations.length) {
+      batchedOperations.pop()();
+    }
   }, [
     items,
     elem.easing,
