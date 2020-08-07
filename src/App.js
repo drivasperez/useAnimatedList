@@ -48,6 +48,7 @@ export default function App() {
 function AnimatedList({ children = [], skip }) {
   const [bindContainer, bindChild] = useAnimatedList(children, {
     skip,
+
     translate: "vertical"
   });
 

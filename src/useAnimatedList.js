@@ -12,20 +12,29 @@ export function useAnimatedList(
 ) {
   const ref = React.useRef();
   const prevBoxes = React.useRef(new Map());
-  const batchedOperations = React.useRef([]);
 
   const shouldAnimate = React.useRef(animateOnFirstRender);
   const runningAnimations = React.useRef(new Set());
+  // Counter could be used to disable controls while animating, or trigger
+  // a callback on all ended etc.
   const animationCounter = React.useRef(0);
 
-  // if (runningAnimations.current.size > 0) {
-  //   // Render has been called again, while animations were in flight.
-  //   for (elem of runningAnimations.current.keys()) {
-  //     const box = elem.getBoundingClientRect();
-  //     elem.style.transition = "";
-  //     elem.style.transform = `transform(${box.left}px, ${box.top}px)`;
-  //   }
-  // }
+  if (runningAnimations.current.size > 0) {
+    // Render has been called again, while animations were in flight.
+    // Reset the transforms before the layoutEffect runs.
+    // This doesn't work very well currently, I'm missing something!
+    const batchedOperations = [];
+    for (elem of runningAnimations.current.keys()) {
+      batchedOperations.push(() => {
+        elem.style.transition = "";
+        elem.style.transform = "";
+      });
+    }
+    runningAnimations.current.clear();
+    while (batchedOperations.length > 0) {
+      batchedOperations.pop()();
+    }
+  }
 
   React.useEffect(() => {
     // Clear the cache if we set skip to true.
@@ -37,6 +46,7 @@ export function useAnimatedList(
 
   React.useLayoutEffect(() => {
     if (skip || !ref.current) return;
+    const batchedOperations = [];
     const list = ref.current;
     const { children: domChildren } = list;
     for (const domChild of domChildren) {
@@ -56,7 +66,7 @@ export function useAnimatedList(
 
           if (dx === 0 && dy === 0) return;
 
-          batchedOperations.current.push(() => {
+          batchedOperations.push(() => {
             requestAnimationFrame(() => {
               domChild.style.transform = `translate(${dx}px, ${dy}px)`;
               domChild.style.transition = "transform 0s";
@@ -80,7 +90,7 @@ export function useAnimatedList(
             });
           });
         } else {
-          batchedOperations.current.push(() => {
+          batchedOperations.push(() => {
             requestAnimationFrame(() => {
               domChild.style.opacity = 0;
               domChild.style.transition = "opacity 0s";
@@ -96,11 +106,10 @@ export function useAnimatedList(
         domChild.dataset.animationKey,
         domChild.getBoundingClientRect()
       );
-      while (batchedOperations.current.length) {
-        batchedOperations.current.pop()();
+      while (batchedOperations.length) {
+        batchedOperations.pop()();
       }
     }
-
     shouldAnimate.current = true;
   }, [
     items,
